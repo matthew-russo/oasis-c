@@ -17,6 +17,7 @@ target_sources(oasis
   FILE_SET oasis_headers TYPE HEADERS
   BASE_DIRS include
   FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/collections/hash_map.h
     ${CMAKE_CURRENT_SOURCE_DIR}/include/hash/fnv.h
 )
 
@@ -51,6 +52,7 @@ enable_testing()
 
 add_executable(
   oasis_test
+  tst/hash_map_test.cpp
   tst/hash_test.cpp
 )
 target_link_libraries(

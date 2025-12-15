@@ -16,7 +16,7 @@
 /// `hash` is used as the starting hash value, allowing hash computations across multiple
 /// buffers. if you have a single buffer, use `fnv1_32_bytes` which properly initalizes
 /// the hash to `FNV_OFFSET_BASIS32`
-uint32_t fnv1_32_bytes_incr(uint32_t hash, uint8_t* buf, size_t len) {
+inline uint32_t fnv1_32_bytes_incr(uint32_t hash, uint8_t* buf, size_t len) {
   for (size_t i = 0; i < len; i++) {
     hash *= FNV_PRIME32;
     hash ^= buf[i];
@@ -25,7 +25,7 @@ uint32_t fnv1_32_bytes_incr(uint32_t hash, uint8_t* buf, size_t len) {
 }
 
 /// Calculates the 32-bit FNV-1 hash of a given byte buffer, `buf`, with length `len`.
-uint32_t fnv1_32_bytes(uint8_t* buf, size_t len) {
+inline uint32_t fnv1_32_bytes(uint8_t* buf, size_t len) {
   return fnv1_32_bytes_incr(FNV_OFFSET_BASIS32, buf, len);
 }
 
@@ -36,7 +36,7 @@ uint32_t fnv1_32_bytes(uint8_t* buf, size_t len) {
 /// `hash` is used as the starting hash value, allowing hash computations across multiple
 /// buffers. if you have a single buffer, use `fnv1_64_bytes` which properly initalizes
 /// the hash to `FNV_OFFSET_BASIS64`
-uint64_t fnv1_64_bytes_incr(uint64_t hash, uint8_t* buf, size_t len) {
+inline uint64_t fnv1_64_bytes_incr(uint64_t hash, uint8_t* buf, size_t len) {
   for (size_t i = 0; i < len; i++) {
     hash *= FNV_PRIME64;
     hash ^= buf[i];
@@ -45,7 +45,7 @@ uint64_t fnv1_64_bytes_incr(uint64_t hash, uint8_t* buf, size_t len) {
 }
 
 /// Calculates the 64-bit FNV-1 hash of a given byte buffer, `buf`, with length `len`.
-uint64_t fnv1_64_bytes(uint8_t* buf, size_t len) {
+inline uint64_t fnv1_64_bytes(uint8_t* buf, size_t len) {
   return fnv1_64_bytes_incr(FNV_OFFSET_BASIS64, buf, len);
 }
 
@@ -58,7 +58,7 @@ uint64_t fnv1_64_bytes(uint8_t* buf, size_t len) {
 /// `hash` is used as the starting hash value, allowing hash computations across multiple
 /// buffers. if you have a single buffer, use `fnv1_64_bytes` which properly initalizes
 /// the hash to `FNV_OFFSET_BASIS64`
-uint32_t fnv1a_32_bytes_incr(uint32_t hash, uint8_t* buf, size_t len) {
+inline uint32_t fnv1a_32_bytes_incr(uint32_t hash, uint8_t* buf, size_t len) {
    for (size_t i = 0; i < len; i++) {
     hash ^= buf[i];
     hash *= FNV_PRIME32;
@@ -69,7 +69,7 @@ uint32_t fnv1a_32_bytes_incr(uint32_t hash, uint8_t* buf, size_t len) {
 /// Calculates the 32-bit FNV-1a hash of a given byte buffer, `buf`, with length `len`.
 ///
 /// FNV-1a has better avalanche characteristics than FNV-1
-uint32_t fnv1a_32_bytes(uint8_t* buf, size_t len) {
+inline uint32_t fnv1a_32_bytes(uint8_t* buf, size_t len) {
   return fnv1a_32_bytes_incr(FNV_OFFSET_BASIS32, buf, len);
 }
 
@@ -82,7 +82,7 @@ uint32_t fnv1a_32_bytes(uint8_t* buf, size_t len) {
 /// `hash` is used as the starting hash value, allowing hash computations across multiple
 /// buffers. if you have a single buffer, use `fnv1_64_bytes` which properly initalizes
 /// the hash to `FNV_OFFSET_BASIS64`
-uint64_t fnv1a_64_bytes_incr(uint64_t hash, uint8_t* buf, size_t len) {
+inline uint64_t fnv1a_64_bytes_incr(uint64_t hash, uint8_t* buf, size_t len) {
   for (size_t i = 0; i < len; i++) {
     hash ^= buf[i];
     hash *= FNV_PRIME64;
@@ -93,7 +93,7 @@ uint64_t fnv1a_64_bytes_incr(uint64_t hash, uint8_t* buf, size_t len) {
 /// Calculates the 64-bit FNV-1a hash of a given byte buffer, `buf`, with length `len`.
 ///
 /// FNV-1a has better avalanche characteristics than FNV-1
-uint64_t fnv1a_64_bytes(uint8_t* buf, size_t len) {
+inline uint64_t fnv1a_64_bytes(uint8_t* buf, size_t len) {
   return fnv1a_64_bytes_incr(FNV_OFFSET_BASIS64, buf, len);
 }
 
