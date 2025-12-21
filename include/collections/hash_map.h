@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-#define DEFAULT_CAPACITY 32;
+#define HM_DEFAULT_CAPACITY 32
 
 // ==== interface ====
 
@@ -52,7 +52,7 @@ hash_map* hm_create(uint64_t (*hash_fn)(void*), double load_factor) {
   hm->hash_fn = hash_fn;
   hm->load_factor = load_factor;
   hm->length = 0;
-  hm->capacity = DEFAULT_CAPACITY;
+  hm->capacity = HM_DEFAULT_CAPACITY;
   hm->entries = (hash_map_entry*)calloc(hm->capacity, sizeof(hash_map_entry));
   if (hm->entries == NULL) {
     free(hm);
@@ -130,7 +130,7 @@ hash_map_entry* __hm_find_slot(hash_map* hm, void* key, bool allow_empty) {
       current_slot++;
 
       // if we've overflowed our capacity, roll around to the front 
-      if (current_slot > hm->capacity) {
+      if (current_slot >= hm->capacity) {
         current_slot = 0;
       }
 
