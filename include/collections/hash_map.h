@@ -26,7 +26,7 @@ void hm_remove(hash_map* hm, void* key);
 
 // internal APIs
 
-hash_map_entry* __hm_find_slot(hash_map* hm, void* key, bool allow_empty);
+hash_map_entry* __hm_find_slot(hash_map* hm, void* key, bool allow_empty, size_t* slot);
 
 // ==== implementation ====
 
@@ -63,6 +63,10 @@ hash_map* hm_create(uint64_t (*hash_fn)(void*), double load_factor) {
 
 void hm_destroy(hash_map* hm) {
   free(hm->entries);
+  hm->hash_fn = NULL;
+  hm->length = 0;
+  hm->capacity = 0;
+  free(hm);
 }
 
 bool hm_is_empty(hash_map* hm) {
@@ -70,7 +74,7 @@ bool hm_is_empty(hash_map* hm) {
 }
 
 hash_map_entry* hm_get(hash_map* hm, void* key) {
-  return __hm_find_slot(hm, key, false);
+  return __hm_find_slot(hm, key, false, NULL);
 }
 
 bool hm_contains(hash_map* hm, void* key) {
@@ -78,7 +82,7 @@ bool hm_contains(hash_map* hm, void* key) {
 }
 
 void hm_insert(hash_map* hm, void* key, void* value) {
-  hash_map_entry* entry = __hm_find_slot(hm, key, true);
+  hash_map_entry* entry = __hm_find_slot(hm, key, true, NULL);
 
   if (entry == NULL) {
     assert(false);
@@ -94,20 +98,63 @@ void hm_insert(hash_map* hm, void* key, void* value) {
 }
 
 void hm_remove(hash_map* hm, void* key) {
-  hash_map_entry* entry = __hm_find_slot(hm, key, false);
+  size_t original_slot;
+  hash_map_entry* entry = __hm_find_slot(hm, key, false, &original_slot);
 
   if (entry == NULL) {
     return;
   }
 
+  // remove the key, which consists of zero'ing our entry and decrementing the length
   assert(entry->key != NULL);
   hm->length -= 1;
   entry->hash = 0;
   entry->key = NULL;
   entry->value = NULL;
+
+  // now that we've removed the key, we need to maintain any potential chains. to
+  // do this, we need to scan forward through the slots (wrapping back to 0 if
+  // needed) and if an entry is present, and its key's hash does *not* match the
+  // slot its in, we shift if left by one
+  size_t current_slot = original_slot;
+  while (true) {
+    size_t next_slot = current_slot + 1;
+    if (next_slot >= hm->capacity) {
+      next_slot = 0;
+    }
+
+    // if we've wrapped all the way back to the original slot we've started at, exit
+    if (next_slot == original_slot) {
+      return;
+    }
+
+    // if there is no next item, exit
+    hash_map_entry next = hm->entries[next_slot];
+    if (next.key == NULL) {
+      assert(next.hash == 0);
+      assert(next.value == NULL);
+      return;
+    }
+
+    uint64_t next_hash = hm->hash_fn(next.key);
+    size_t intended_next_slot = next_hash % hm->capacity;
+
+    // if the next item is in the right spot, exit
+    if (next_slot == intended_next_slot) {
+      return;
+    }
+
+    // otherwise start shifting items left
+    hm->entries[current_slot] = hm->entries[next_slot];
+    hm->entries[next_slot].hash = 0;
+    hm->entries[next_slot].key = NULL;
+    hm->entries[next_slot].value = NULL;
+
+    current_slot = next_slot;
+  }
 }
 
-hash_map_entry* __hm_find_slot(hash_map* hm, void* key, bool allow_empty) {
+hash_map_entry* __hm_find_slot(hash_map* hm, void* key, bool allow_empty, size_t* out_slot) {
   uint64_t hash = hm->hash_fn(key);
   size_t original_slot = hash % hm->capacity;
   size_t current_slot = original_slot;
@@ -115,6 +162,9 @@ hash_map_entry* __hm_find_slot(hash_map* hm, void* key, bool allow_empty) {
     hash_map_entry* entry = &hm->entries[current_slot];
     if (entry->key == NULL) {
       if (allow_empty) {
+        if (out_slot != NULL) {
+          *out_slot = current_slot;
+        }
         return entry;
       }
 
@@ -122,6 +172,9 @@ hash_map_entry* __hm_find_slot(hash_map* hm, void* key, bool allow_empty) {
     } else {
       // if the entry is our hash, return the entry
       if (entry->hash == hash) {
+        if (out_slot != NULL) {
+          *out_slot = current_slot;
+        }
         return entry;
       }
 
