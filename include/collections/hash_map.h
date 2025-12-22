@@ -178,6 +178,12 @@ hash_map_entry* __hm_find_slot(hash_map* hm, void* key, bool allow_empty, size_t
         return entry;
       }
 
+      // if the new slot is correctly placed, the linear chain is broken. return
+      // null and the caller needs to decide how to proceed
+      if (current_slot != original_slot && hm->hash_fn(hm->entries[current_slot].key) % hm->capacity == current_slot) {
+        return NULL;
+      }
+
       // otherwise we need to linearly probe through the rest of the list to find
       // either the next empty spot (element not found) or the correct entry (hash matches)
       current_slot++;
