@@ -1,6 +1,8 @@
 #include <cstring>
 #include <gtest/gtest.h>
 #include <stdint.h>
+#include <stdio.h>
+
 
 #include "collections/hash_map.h"
 #include "hash/fnv.h"
@@ -153,22 +155,22 @@ TEST(CollectionsHashMapTest, HashMapRemoveMaintainsLinearChains) {
   hash_map_entry entry4;
 
   entry1 = hm->entries[HM_DEFAULT_CAPACITY - 1];
-  EXPECT_EQ(entry1.hash, str_hash_fn((void*)slot31_key1));
+  EXPECT_EQ(str_hash_fn((void*)slot31_key1), entry1.hash);
   EXPECT_STREQ(slot31_key1, (char*)entry1.key);
   EXPECT_STREQ(slot31_key1, (char*)entry1.value);
 
   entry2 = hm->entries[0];
-  EXPECT_EQ(entry2.hash, str_hash_fn((void*)slot31_key2));
+  EXPECT_EQ(str_hash_fn((void*)slot31_key2), entry2.hash);
   EXPECT_STREQ(slot31_key2, (char*)entry2.key);
   EXPECT_STREQ(slot31_key2, (char*)entry2.value);
 
   entry3 = hm->entries[1];
-  EXPECT_EQ(entry3.hash, str_hash_fn((void*)slot31_key3));
+  EXPECT_EQ(str_hash_fn((void*)slot31_key3), entry3.hash);
   EXPECT_STREQ(slot31_key3, (char*)entry3.key);
   EXPECT_STREQ(slot31_key3, (char*)entry3.value);
 
   entry4 = hm->entries[2];
-  EXPECT_EQ(entry4.hash, str_hash_fn((void*)slot2_key1));
+  EXPECT_EQ(str_hash_fn((void*)slot2_key1), entry4.hash);
   EXPECT_STREQ(slot2_key1, (char*)entry4.key);
   EXPECT_STREQ(slot2_key1, (char*)entry4.value);
 
@@ -177,17 +179,17 @@ TEST(CollectionsHashMapTest, HashMapRemoveMaintainsLinearChains) {
   hm_remove(hm, (void*)slot31_key1);
 
   entry1 = hm->entries[HM_DEFAULT_CAPACITY - 1];
-  EXPECT_EQ(entry1.hash, str_hash_fn((void*)slot31_key2));
+  EXPECT_EQ(str_hash_fn((void*)slot31_key2), entry1.hash);
   EXPECT_STREQ(slot31_key2, (char*)entry1.key);
   EXPECT_STREQ(slot31_key2, (char*)entry1.value);
 
   entry2 = hm->entries[0];
-  EXPECT_EQ(entry2.hash, str_hash_fn((void*)slot31_key3));
+  EXPECT_EQ(str_hash_fn((void*)slot31_key3), entry2.hash);
   EXPECT_STREQ(slot31_key3, (char*)entry2.key);
   EXPECT_STREQ(slot31_key3, (char*)entry2.value);
 
   entry4 = hm->entries[2];
-  EXPECT_EQ(entry4.hash, str_hash_fn((void*)slot2_key1));
+  EXPECT_EQ(str_hash_fn((void*)slot2_key1), entry4.hash);
   EXPECT_STREQ(slot2_key1, (char*)entry4.key);
   EXPECT_STREQ(slot2_key1, (char*)entry4.value);
 
@@ -196,14 +198,73 @@ TEST(CollectionsHashMapTest, HashMapRemoveMaintainsLinearChains) {
   hm_remove(hm, (void*)slot31_key2);
 
   entry1 = hm->entries[HM_DEFAULT_CAPACITY - 1];
-  EXPECT_EQ(entry1.hash, str_hash_fn((void*)slot31_key3));
+  EXPECT_EQ(str_hash_fn((void*)slot31_key3), entry1.hash);
   EXPECT_STREQ(slot31_key3, (char*)entry1.key);
   EXPECT_STREQ(slot31_key3, (char*)entry1.value);
 
   entry4 = hm->entries[2];
-  EXPECT_EQ(entry4.hash, str_hash_fn((void*)slot2_key1));
+  EXPECT_EQ(str_hash_fn((void*)slot2_key1), entry4.hash);
   EXPECT_STREQ(slot2_key1, (char*)entry4.key);
   EXPECT_STREQ(slot2_key1, (char*)entry4.value);
+
+  hm_destroy(hm);
+}
+
+TEST(CollectionsHashMapTest, HashMapReallocates) {
+  hash_map* hm = hm_create(str_hash_fn, 0.8);
+
+  ASSERT_EQ(HM_DEFAULT_CAPACITY, hm->capacity);
+
+  // insert the full capacity, forcing a reallocation
+  for (size_t i = 0; i < HM_DEFAULT_CAPACITY; i++) {
+    char* s = (char*)calloc(20, sizeof(char));
+    snprintf(s, 20, "%zu", i);
+    hm_insert(hm, (void*)s, (void*)s);
+  }
+
+  size_t capacity_after_first_round = hm->capacity;
+
+  // validate we've inserted the expected amount and that we've reallocated
+  ASSERT_EQ(HM_DEFAULT_CAPACITY, hm->length);
+  // we cant guarantee that only a single grow happened since we currently have
+  // two conditions to grow the structures:
+  // - the load factor was exceeded
+  // - we failed to find a slot while linearly probing
+  // in this specific case, we grow the array once around element 25 when we breach
+  // the 80% load factor and a second time around element 30 due to not finding a slot
+  ASSERT_GE(hm->capacity, HM_DEFAULT_CAPACITY * 2);
+
+  // validate all entries are still accessible
+  for (size_t i = 0; i < HM_DEFAULT_CAPACITY; i++) {
+    char s[20];
+    snprintf(s, 20, "%zu", i);
+    hash_map_entry* entry = hm_get(hm, (void*)s);
+    ASSERT_NE(nullptr, entry);
+    EXPECT_STREQ((char*)entry->key, s);
+    EXPECT_STREQ((char*)entry->value, s);
+  }
+
+  // force a second reallocation
+  for (size_t i = HM_DEFAULT_CAPACITY; i < HM_DEFAULT_CAPACITY * 2; i++) {
+    char* s = (char*)calloc(20, sizeof(char));
+    snprintf(s, 20, "%zu", i);
+    hm_insert(hm, (void*)s, (void*)s);
+  }
+
+  // validate we've inserted the expected amount and that we've reallocated again
+  ASSERT_EQ(HM_DEFAULT_CAPACITY * 2, hm->length);
+  ASSERT_GE(hm->capacity, capacity_after_first_round);
+
+  // validate all entries are still accessible
+  for (size_t i = 0; i < HM_DEFAULT_CAPACITY * 2; i++) {
+    char s[20];
+    snprintf(s, 20, "%zu", i);
+    hash_map_entry* entry = hm_get(hm, (void*)s);
+    ASSERT_NE(nullptr, entry);
+    EXPECT_STREQ(s, (char*)entry->key);
+    EXPECT_STREQ(s, (char*)entry->value);
+    hm_remove(hm, (void*)s);
+  }
 
   hm_destroy(hm);
 }

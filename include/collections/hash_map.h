@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define HM_DEFAULT_CAPACITY 32
 
@@ -27,6 +28,7 @@ void hm_remove(hash_map* hm, void* key);
 // internal APIs
 
 hash_map_entry* __hm_find_slot(hash_map* hm, void* key, bool allow_empty, size_t* slot);
+void __hm_grow(hash_map* hm);
 
 // ==== implementation ====
 
@@ -82,10 +84,25 @@ bool hm_contains(hash_map* hm, void* key) {
 }
 
 void hm_insert(hash_map* hm, void* key, void* value) {
-  hash_map_entry* entry = __hm_find_slot(hm, key, true, NULL);
+  // determine if we need to resize by checking if our current size + 1
+  // will exceed the load factor
+  if ((double)(hm->length + 1) / (double)hm->capacity > hm->load_factor) {
+    __hm_grow(hm);
+  }
 
-  if (entry == NULL) {
-    assert(false);
+  size_t slot;
+  hash_map_entry* entry = NULL;
+  int grows = 0;
+  while (entry == NULL) {
+    entry = __hm_find_slot(hm, key, true, &slot);
+    if (entry == NULL) {
+      __hm_grow(hm);
+      grows++;
+    }
+
+    if (grows == 3) {
+      assert(false);
+    }
   }
 
   uint64_t hash = hm->hash_fn(key);
@@ -145,7 +162,7 @@ void hm_remove(hash_map* hm, void* key) {
     }
 
     // otherwise start shifting items left
-    hm->entries[current_slot] = hm->entries[next_slot];
+    hm->entries[current_slot] = next;
     hm->entries[next_slot].hash = 0;
     hm->entries[next_slot].key = NULL;
     hm->entries[next_slot].value = NULL;
@@ -201,6 +218,30 @@ hash_map_entry* __hm_find_slot(hash_map* hm, void* key, bool allow_empty, size_t
       }
     }
   }
+}
+
+void __hm_grow(hash_map* hm) {
+  hash_map new_hm = {
+    .hash_fn = hm->hash_fn,
+    .load_factor = hm->load_factor,
+    .entries = (hash_map_entry*)calloc(hm->capacity * 2, sizeof(hash_map_entry)),
+    .length = 0,
+    .capacity = hm->capacity * 2,
+  };
+
+  // move all existing entries to the new allocation;
+  for (size_t i = 0; i < hm->capacity; i++) {
+    if (hm->entries[i].key != NULL) {
+      hm_insert(&new_hm, hm->entries[i].key, hm->entries[i].value);
+    }
+  }
+
+  // now swap our hash_maps
+  hash_map old_hm = *hm;
+  *hm = new_hm;
+
+  // and clean up our old allocation
+  free(old_hm.entries);
 }
 
 #endif // OASIS_C_COLLECTIONS_HASH_MAP_H
